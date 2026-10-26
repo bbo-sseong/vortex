@@ -417,12 +417,18 @@
 
 // Size of LSU Core Request Queue
 `ifndef LSUQ_IN_SIZE
-`define LSUQ_IN_SIZE    (2 * (`SIMD_WIDTH / `NUM_LSU_LANES))
+`define LSUQ_IN_SIZE    `MAX(4, 2 * (`SIMD_WIDTH / `NUM_LSU_LANES))
 `endif
 
 // Size of LSU Memory Request Queue
+// Outstanding-load pool (MLP depth), decoupled from the LSU input queue as in
+// upstream vortexgpgpu/vortex ed61857a9: ~2 in-flight loads per warp, clamped.
+`ifndef LSU_PENDING_SIZE
+`define LSU_PENDING_SIZE `MIN(32, `MAX(8, 2 * `NUM_WARPS * (`SIMD_WIDTH / `NUM_LSU_LANES)))
+`endif
+
 `ifndef LSUQ_OUT_SIZE
-`define LSUQ_OUT_SIZE   `MAX(`LSUQ_IN_SIZE, `LSU_LINE_SIZE / (`XLEN / 8))
+`define LSUQ_OUT_SIZE   `MAX(`LSU_PENDING_SIZE, `LSU_LINE_SIZE / (`XLEN / 8))
 `endif
 
 // Floating-Point Units ///////////////////////////////////////////////////////

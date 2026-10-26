@@ -84,7 +84,7 @@ private:
 		instr_trace_t* fence_trace;
 		bool fence_lock;
 
-		lsu_state_t() : pending_rd_reqs(LSUQ_IN_SIZE) {}
+		lsu_state_t() : pending_rd_reqs(LSU_PENDING_SIZE) {}
 
 		void reset() {
 			this->pending_rd_reqs.clear();
