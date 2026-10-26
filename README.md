@@ -113,16 +113,36 @@ iPAWS는 논문 가정이 Vortex와 어긋나는 지점들을 데이터로 확�
 
 ## 문서
 
-[`docs/urp/`](docs/urp/)에 본인이 작성한 산출물만 넣었다. 제3자 논문 PDF와 강의 자료는 저작권 때문에 제외했다.
+[`docs/urp/`](docs/urp/)에 연구 기간에 만든 자료를 날짜순으로 정리했다. 발표 자료는 3인이 함께 만든 팀 덱이고, 노트와 메모는 본인이 작성했다. 날짜는 파일 이름이 아니라 표지·대본에 적힌 날짜와 문서의 작성 기록으로 확인했다. 제3자 논문 PDF와 강의 자료는 저작권 때문에 넣지 않았다.
 
-| 파일 | 내용 |
-|---|---|
-| `01_URP_계획서.docx` | 초기 연구 로드맵 (주차별 계획) |
-| `02_중간발표_2026-04-17.pdf` | 중간 발표 |
-| `03_최종발표_2026-05-31.pptx` | 최종 발표 — 병목 진단 과정 중심 |
-| `04_연구결과보고서_2026-1.hwpx` | 학부생 연구학점제 최종 결과보고서 |
-| `note_*.docx` | GPU 스케줄러 정리, CAWA 논문 정리, Vortex 구조 분석 |
-| `gen_hub_graph.py` | warp 불균형 실험용 BFS hub-graph 생성기 |
+### 발표
+
+팀은 약 2주 간격으로 진행 상황을 발표했다.
+
+| 날짜 | 발표 자료 | 대본 | 내용 |
+|---|---|---|---|
+| 04-03 | [진행상황 발표](docs/urp/presentations/2026-04-03_진행상황_발표.pptx) | [대본](docs/urp/scripts/2026-04-03_발표대본.pages) | 연구 계획, Vortex 구조, 워프 스케줄러·워크로드 조사. 30장 중 1~8장을 발표 |
+| 04-17 | [정기 미팅 발표](docs/urp/presentations/2026-04-17_정기미팅_발표.pptx) | [대본](docs/urp/scripts/2026-04-17_발표대본.pages) | GTO/RR 구현, CAWA 리뷰, configuration 탐색. 53장, 3인 분담 |
+| 05-15 | [iPAWS + gCAWS 발표](docs/urp/presentations/2026-05-15_iPAWS_gCAWS_발표.pptx) | — | iPAWS·gCAWS 변형 스케줄러 구현과 워크로드별 실험. 20장 |
+| 06-05 | [LSUQ 병목 발표](docs/urp/presentations/2026-06-05_LSUQ_병목_발표.pptx) | [대본](docs/urp/scripts/2026-06-05_발표대본.pages) | 스케줄러 무감각 원인 — core-wide LSUQ 병목 규명. 29장 중 1~12장을 발표 |
+
+5/8 미팅은 슬라이드 없이 진행했다. 5/29에는 발표 준비 메모만 남아 있어 실제 발표 여부를 확인하지 못했다. 6/17 연구결과 공개발표회(ZOOM)에서 쓴 덱은 보관본을 찾지 못했다.
+
+### 보고서·노트
+
+| 날짜 | 파일 | 내용 |
+|---|---|---|
+| 03-27 | [연구계획 로드맵](docs/urp/reports/2026-03-27_연구계획_로드맵.docx) | 15주 연구 로드맵 (초기 계획) |
+| 04-02 | [Vortex 구조](docs/urp/notes/2026-04-02_Vortex_구조.docx) | Vortex 구조 학습 노트 |
+| 04-07 | [미팅 사전공부](docs/urp/notes/2026-04-07_미팅_사전공부.pdf) | 4/7 미팅 전, 스케줄러 첫 수정 지점 검토 |
+| 04-13 | [CAWA 논문 정리](docs/urp/notes/2026-04-13_CAWA_논문정리.docx) | CAWA (ISCA 2015) 정리 |
+| 05-08 | [미팅 메모](docs/urp/notes/2026-05-08_미팅메모.pages) | iPAWS + CAWA 구현 방향 결정 |
+| 05-11 | [구현 방향 메모](docs/urp/notes/2026-05-11_구현방향_메모.pages) | gCAWS 구현 결과와 iPAWS+gCAWS 결합 설계 |
+| 05-29 | [발표 준비 메모](docs/urp/notes/2026-05-29_발표준비_메모.pages) | 발표 준비 메모 |
+| 06-17 | [연구결과보고서](docs/urp/reports/2026-06-17_연구결과보고서.hwpx) | 학부생 연구학점제 연구결과보고서 |
+| — | [gen_hub_graph.py](docs/urp/gen_hub_graph.py) | warp 불균형 실험용 BFS hub-graph 생성기 |
+
+`.pages`는 Apple Pages, `.hwpx`는 한컴오피스 형식이라 GitHub에서 미리보기가 되지 않으니 내려받아서 열어야 한다.
 
 ## 참고 문헌
 
