@@ -19,6 +19,8 @@
 #include <sstream>
 #include <unordered_map>
 #include <cstring>
+#include <cstdlib>
+#include <iostream>
 
 #include "scheduler.h"
 #include "decode.h"
@@ -54,6 +56,33 @@
 
 using namespace vortex;
 
+// Issue arbiter for the scheduler study, chosen once per process by
+// VX_ISSUE_ARB: unset, empty or greedy_rr keeps the default GreedyRR;
+// rr selects RoundRobin; gto selects GTO.
+static ArbiterType issue_arbiter_type() {
+  static const ArbiterType type = [] {
+    const char* env = std::getenv("VX_ISSUE_ARB");
+    std::string value = env ? env : "";
+    ArbiterType t = ArbiterType::GreedyRR;
+    if (value.empty() || value == "greedy_rr") {
+      t = ArbiterType::GreedyRR;
+    } else if (value == "rr") {
+      t = ArbiterType::RoundRobin;
+    } else if (value == "gto") {
+      t = ArbiterType::GTO;
+    } else {
+      std::cerr << "error: unknown VX_ISSUE_ARB=" << value
+                << " (expected greedy_rr, rr or gto)" << std::endl;
+      std::exit(1);
+    }
+    if (!value.empty()) {
+      std::cout << "VX_ISSUE_ARB=" << value << " (" << t << ")" << std::endl;
+    }
+    return t;
+  }();
+  return type;
+}
+
 class Core::Impl {
 public:
   Impl(const SimContext& ctx, Core* simobject)
@@ -69,7 +98,7 @@ public:
     , fetch_latch_(ctx, "fetch_latch", 2, 2)
     , decode_latch_(ctx, "decode_latch", 1, 2)
     , pending_icache_(VX_CFG_NUM_WARPS)
-    , ibuffer_arbs_(VX_CFG_ISSUE_WIDTH, {ArbiterType::GreedyRR, PER_ISSUE_WARPS})
+    , ibuffer_arbs_(VX_CFG_ISSUE_WIDTH, {issue_arbiter_type(), PER_ISSUE_WARPS})
     , issue_lock_owner_(VX_CFG_ISSUE_WIDTH, kLockOpen)
     , fu_credits_(VX_CFG_ISSUE_WIDTH, std::vector<uint32_t>((uint32_t)FUType::Count, 0))
     , fu_full_(VX_CFG_ISSUE_WIDTH, BitVector<>((uint32_t)FUType::Count, 0))
@@ -311,6 +340,23 @@ public:
     }
 
     this->reset();
+  }
+
+  ~Impl() {
+    // Scheduler study counters, accumulated over every launch of the run.
+    std::cout << "SCHEDSTATS core=" << simobject_->name()
+              << " policy=" << issue_arbiter_type()
+              << " issue_slots=" << ss_issue_slots_
+              << " dready0=" << ss_dready_[0]
+              << " dready1=" << ss_dready_[1]
+              << " dready2p=" << ss_dready_[2]
+              << " ready0=" << ss_ready_[0]
+              << " ready1=" << ss_ready_[1]
+              << " ready2p=" << ss_ready_[2]
+              << " lsu_skip_slots=" << ss_lsu_skip_slots_
+              << " lsu_skips=" << ss_lsu_skips_
+              << " issued=" << ss_issued_
+              << std::endl;
   }
 
   void reset() {
@@ -579,6 +625,8 @@ public:
     // issue ibuffer instructions
     for (uint32_t iw = 0; iw < VX_CFG_ISSUE_WIDTH; ++iw) {
       bool any_scrb_blocked = false;
+      uint32_t n_dready = 0;    // heads that pass the scoreboard
+      uint32_t n_lsu_skips = 0; // of those, skipped because the LSU is near full
       BitVector<> ready_set(PER_ISSUE_WARPS);
       for (uint32_t w = 0; w < PER_ISSUE_WARPS; ++w) {
         uint32_t wid = w * VX_CFG_ISSUE_WIDTH + iw;
@@ -618,6 +666,7 @@ public:
           any_scrb_blocked = true;
         } else {
           uop_trace->log_once(false);
+          ++n_dready;
           if (seq_starting) {
             continue;
           }
@@ -632,6 +681,9 @@ public:
           // count ops still in operand collection. The flag reaches issue through
           // two registers, so a warp sees the count as of two cycles back.
           if (fu_full_seen_.at(iw).test(fu)) {
+            if (fu == (int)FUType::LSU) {
+              ++n_lsu_skips;
+            }
             continue;
           }
         #ifdef VX_CFG_EXT_RTU_ENABLE
@@ -648,6 +700,14 @@ public:
         }
       }
 
+      ++ss_issue_slots_;
+      ++ss_dready_[std::min<uint32_t>(n_dready, 2)];
+      ++ss_ready_[std::min<uint32_t>(ready_set.count(), 2)];
+      if (n_lsu_skips != 0) {
+        ++ss_lsu_skip_slots_;
+        ss_lsu_skips_ += n_lsu_skips;
+      }
+
       if (ready_set.any()) {
         // select one instruction from ready set
         auto w = ibuffer_arbs_.at(iw).grant(ready_set);
@@ -661,6 +721,7 @@ public:
 
         // to operand stage
         if (operands_.at(iw)->Input.try_send(uop_trace)) {
+          ++ss_issued_;
           // capture register operands at issue (Operands owns regfile)
           operands_.at(iw)->fetch_operands(uop_trace);
           // spend a dispatch credit for the target FU
@@ -1107,6 +1168,14 @@ private:
   std::vector<std::vector<std::unique_ptr<SimChannel<instr_trace_t*>>>> commit_queues_;
 
   std::vector<Arbiter> ibuffer_arbs_;
+
+  // scheduler study counters (printed as SCHEDSTATS when the core is destroyed)
+  uint64_t ss_issue_slots_ = 0;
+  uint64_t ss_dready_[3] = {0, 0, 0};  // slice-cycles with 0, 1, 2+ data-ready heads
+  uint64_t ss_ready_[3] = {0, 0, 0};   // slice-cycles with 0, 1, 2+ heads offered to the arbiter
+  uint64_t ss_lsu_skip_slots_ = 0;
+  uint64_t ss_lsu_skips_ = 0;
+  uint64_t ss_issued_ = 0;
 
   static constexpr uint32_t kLockOpen = ~0u;
   std::vector<uint32_t> issue_lock_owner_; // [iw] slot-local warp holding the issue lock

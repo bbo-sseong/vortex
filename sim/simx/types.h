@@ -929,7 +929,8 @@ enum class ArbiterType {
   Priority,
   RoundRobin,
   Matrix,
-  GreedyRR
+  GreedyRR,
+  GTO
 };
 
 inline std::ostream &operator<<(std::ostream &os, const ArbiterType& type) {
@@ -938,6 +939,7 @@ inline std::ostream &operator<<(std::ostream &os, const ArbiterType& type) {
   case ArbiterType::RoundRobin: os << "RoundRobin"; break;
   case ArbiterType::Matrix:     os << "Matrix"; break;
   case ArbiterType::GreedyRR:   os << "GreedyRR"; break;
+  case ArbiterType::GTO:        os << "GTO"; break;
   default: assert(false);
   }
   return os;
@@ -1084,6 +1086,39 @@ private:
   uint32_t last_grant_;
 };
 
+// Greedy-then-oldest: keeps granting the current owner while it requests,
+// otherwise the lowest-index requester (warps launch together, so the lowest
+// index stands in for the oldest).
+class GTOArbiter : public IArbiterImpl {
+public:
+  GTOArbiter(uint32_t size) : size_(size) {
+    this->reset();
+  }
+
+  uint32_t grant(const BitVector<>& requests) override {
+    assert(requests.size() == size_);
+    if (current_ < size_ && requests.test(current_)) {
+      return current_;
+    }
+    for (uint32_t i = 0; i < size_; ++i) {
+      if (requests.test(i)) {
+        current_ = i;
+        return i;
+      }
+    }
+    current_ = -1u;
+    return -1u;
+  }
+
+  void reset() override {
+    current_ = -1u;
+  }
+
+private:
+  uint32_t size_;
+  uint32_t current_;
+};
+
 class Arbiter {
 public:
   Arbiter(ArbiterType type = ArbiterType::Priority, uint32_t size = 0) {
@@ -1099,6 +1134,9 @@ public:
       break;
     case ArbiterType::GreedyRR:
       impl_ = std::make_shared<GreedyRRArbiter>(size);
+      break;
+    case ArbiterType::GTO:
+      impl_ = std::make_shared<GTOArbiter>(size);
       break;
     default:
       assert(false);
